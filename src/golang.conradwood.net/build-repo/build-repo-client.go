@@ -28,9 +28,15 @@ func main() {
 		log.Fatalf("fail to dial: %v", err)
 	}
 	defer conn.Close()
-	client := pb.NewVpnManagerClient(conn)
-	req := pb.CreateRequest{Name: "clientvpn", Access: "testaccess"}
-	resp, err := client.CreateVpn(context.Background(), &req)
+	client := pb.NewBuildRepoManagerClient(conn)
+	req := pb.CreateBuildRequest{
+		Repository: "clientvpn",
+		CommitID:   "testaccess",
+		Branch:     "master",
+		BuildID:    1,
+		CommitMSG:  "none",
+	}
+	resp, err := client.CreateBuild(context.Background(), &req)
 	if err != nil {
 		log.Fatalf("fail to createvpn: %v", err)
 	}

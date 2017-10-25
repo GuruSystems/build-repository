@@ -29,8 +29,8 @@ func main() {
 	var opts []grpc.ServerOption
 	grpcServer := grpc.NewServer(opts...)
 
-	s := new(VpnManagerServer)
-	pb.RegisterVpnManagerServer(grpcServer, s) // created by proto
+	s := new(BuildRepoServer)
+	pb.RegisterBuildRepoManagerServer(grpcServer, s) // created by proto
 
 	grpcServer.Serve(lis)
 }
@@ -38,7 +38,7 @@ func main() {
 /**********************************
 * implementing the functions here:
 ***********************************/
-type VpnManagerServer struct {
+type BuildRepoServer struct {
 	wtf int
 }
 
@@ -46,18 +46,17 @@ type VpnManagerServer struct {
 // in java/python we also put pointers to functions into structs and but call them "objects" instead
 // in Go we don't put functions pointers into structs, we "associate" a function with a struct.
 // (I think that's more or less the same as what C does, just different Syntax)
-func (s *VpnManagerServer) CreateVpn(ctx context.Context, CreateRequest *pb.CreateRequest) (*pb.CreateResponse, error) {
+func (s *BuildRepoServer) CreateBuild(ctx context.Context, CreateRequest *pb.CreateBuildRequest) (*pb.CreateBuildResponse, error) {
 	peer, ok := peer.FromContext(ctx)
 	if !ok {
 		fmt.Println("Error getting peer ")
 	}
 	fmt.Println(peer.Addr, "called createvpn")
-	resp := pb.CreateResponse{}
-	resp.Certificate = "I am a fake certificate"
+	resp := pb.CreateBuildResponse{}
 	return &resp, nil
 }
 
-func (s *VpnManagerServer) Ping(ctx context.Context, pr *pb.PingRequest) (*pb.PingResponse, error) {
+func (s *BuildRepoServer) Ping(ctx context.Context, pr *pb.PingRequest) (*pb.PingResponse, error) {
 	fmt.Println("pong")
 	return nil, nil
 }

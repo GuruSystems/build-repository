@@ -1,7 +1,7 @@
 
 syntax = "proto3";
 
-package vpnmgr;
+package buildrepo;
 
 import "google/api/annotations.proto";
 /*
@@ -11,32 +11,24 @@ import "examples/sub/message.proto";
 import "examples/sub2/message.proto";
 import "google/protobuf/timestamp.proto";
 */
-message CreateRequest {
- string Name = 1;
- string Access = 2;
+message CreateBuildRequest {
+ string Repository = 1;
+ string CommitID = 2;
+ string Branch = 3;
+ uint64 BuildID = 4;
+ string CommitMSG = 5;
 }
 
-message CreateResponse {
- string Certificate=1;
+message CreateBuildResponse {
+ string BuildStoreid=1;
 }
 
 message PingRequest {}
 message PingResponse {}
 
-service VpnManager {
- rpc CreateVpn(CreateRequest) returns (CreateResponse){
-     option (google.api.http) = { get: "/vpnmgr/v1/vpn/certificate" };
- }
+service BuildRepoManager {
+ rpc createBuild(CreateBuildRequest) returns (CreateBuildResponse);
+ rpc Ping(PingRequest) returns (PingResponse);
 
- rpc Ping(PingRequest) returns (PingResponse) {
-     option (google.api.http) = { get: "/vpnmgr/v1/ping" };
- }
 
- /*
- option(google.api.http) = {
-   post: "/v1/echo"
-   body: "*"
- };
- }
- */
 }
