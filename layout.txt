@@ -1,0 +1,5 @@
+go files in "main" package must reside at toplevel directory
+depencies live in vendor directory, managed by "godep"
+
+#packages are under golang.gurusys.co.uk
+
