@@ -1,0 +1,78 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "proto/build-repo.proto",
+    "version": "version not set"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/vpnmgr/v1/ping": {
+      "get": {
+        "operationId": "Ping",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/vpnmgrPingResponse"
+            }
+          }
+        },
+        "tags": [
+          "VpnManager"
+        ]
+      }
+    },
+    "/vpnmgr/v1/vpn/certificate": {
+      "get": {
+        "operationId": "CreateVpn",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/vpnmgrCreateResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "Name",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "Access",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "VpnManager"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "vpnmgrCreateResponse": {
+      "type": "object",
+      "properties": {
+        "Certificate": {
+          "type": "string"
+        }
+      }
+    },
+    "vpnmgrPingResponse": {
+      "type": "object"
+    }
+  }
+}
