@@ -23,12 +23,20 @@ message CreateBuildResponse {
  string BuildStoreid=1;
 }
 
+message UploadSlotRequest {
+string BuildStoreid=1;
+string Filename=2;
+}
+message UploadSlotResponse {
+string Token=1;
+int32 Port = 2;
+}
+
 message PingRequest {}
 message PingResponse {}
 
 service BuildRepoManager {
- rpc createBuild(CreateBuildRequest) returns (CreateBuildResponse);
+ rpc CreateBuild(CreateBuildRequest) returns (CreateBuildResponse);
+ rpc GetUploadSlot(UploadSlotRequest) returns (UploadSlotResponse);
  rpc Ping(PingRequest) returns (PingResponse);
-
-
 }
