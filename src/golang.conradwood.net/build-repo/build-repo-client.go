@@ -34,5 +34,5 @@ func main() {
 	if err != nil {
 		log.Fatalf("fail to createvpn: %v", err)
 	}
-	fmt.Printf("Response to createvpn: %v\n", resp)
+	fmt.Printf("Response to createvpn was: %v\n", resp)
 }
