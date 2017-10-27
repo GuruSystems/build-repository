@@ -1,3 +1,4 @@
+this is an entire GO directory.
 set GOPATH to this level to compile
 
 start server with --port [number]
