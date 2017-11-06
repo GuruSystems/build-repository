@@ -19,8 +19,12 @@ import (
 
 // static variables for flag parser
 var (
-	serverAddr = flag.String("server_addr", "127.0.0.1:10000", "The server address in the format of host:port")
-	port       = flag.Int("port", 10000, "The server port")
+	serverAddr  = flag.String("server_addr", "apps.guru.localdomain:5004", "The server address in the format of host:port")
+	reponame    = flag.String("repository", "", "name of repository")
+	branchname  = flag.String("branch", "", "branch of commit")
+	commitid    = flag.String("commitid", "", "commit")
+	commitmsg   = flag.String("commitmsg", "", "commit message")
+	buildnumber = flag.Int("build", 0, "build number")
 )
 
 func main() {
@@ -36,12 +40,13 @@ func main() {
 	ctx := context.Background()
 
 	client := pb.NewBuildRepoManagerClient(conn)
+	fmt.Printf("New build %d in repo %s\n", *buildnumber, *reponame)
 	req := pb.CreateBuildRequest{
-		Repository: "testrepo",
-		CommitID:   "testaccess",
-		Branch:     "master",
-		BuildID:    1,
-		CommitMSG:  "none",
+		Repository: *reponame,
+		CommitID:   *commitid,
+		Branch:     *branchname,
+		BuildID:    uint64(*buildnumber),
+		CommitMSG:  *commitmsg,
 	}
 	resp, err := client.CreateBuild(ctx, &req)
 	if err != nil {
@@ -53,6 +58,11 @@ func main() {
 	// why "dog"? I learned of the "range" operator from an example
 	// which uses "dogs" - cnw
 	for _, dog := range files {
+		st, err := os.Stat(dog)
+		if !st.Mode().IsRegular() {
+			fmt.Printf("Skipping %s - it's not a file\n", dog)
+			continue
+		}
 		fmt.Printf("Uploading \"%s\"\n", dog)
 		file, err := os.Open(dog)
 		if err != nil {

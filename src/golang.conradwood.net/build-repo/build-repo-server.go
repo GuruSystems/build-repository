@@ -21,17 +21,19 @@ import (
 )
 
 type UploadMetaData struct {
-	Token     string
-	Filename  string
-	Storeid   string
+	Token    string
+	Filename string
+	Storeid  string
+	// the path under which we store the files
 	Storepath string
 	Created   time.Time
 }
 
 // static variables
 var (
-	port     = flag.Int("port", 10000, "The server port")
-	base     = "/srv/build-repositories"
+	port     = flag.Int("port", 5004, "The server port")
+	httpport = flag.Int("http_port", 5005, "The http server port")
+	base     = "/srv/build-repository/artefacts"
 	src      = rand.NewSource(time.Now().UnixNano())
 	uploads  = make(map[string]UploadMetaData)
 	httpPort int
@@ -89,7 +91,7 @@ func StoreUploadMetaData(vfilename string, vtoken string, vstoreid string) {
 func main() {
 	flag.Parse() // parse stuff. see "var" section above
 	listenAddr := fmt.Sprintf(":%d", *port)
-	httpPort = *port + 1
+	httpPort = *httpport
 	lis, err := net.Listen("tcp4", fmt.Sprintf(":%d", *port))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
@@ -121,8 +123,8 @@ func upload(w http.ResponseWriter, r *http.Request) {
 	//fmt.Printf("Token: \"%s\"\n", token)
 	umd := FindUploadMetaData(token)
 
-	fmt.Printf("Receiving file %s\n", umd.Filename)
 	fname := fmt.Sprintf("%s/%s", umd.Storepath, umd.Filename)
+	fmt.Printf("Receiving file %s => %s\n", umd.Filename, fname)
 	f, err := os.OpenFile(fname, os.O_WRONLY|os.O_CREATE, 0755)
 	if err != nil {
 		fmt.Printf("Failed to open file %s: %v\n", fname, err)
@@ -149,6 +151,22 @@ func (s *BuildRepoServer) CreateBuild(ctx context.Context, CreateRequest *pb.Cre
 	if !ok {
 		fmt.Println("Error getting peer ")
 	}
+	if CreateRequest.Repository == "" {
+		return nil, errors.New("Missing repository name")
+	}
+	if CreateRequest.CommitID == "" {
+		return nil, errors.New("Missing commit id")
+	}
+	if CreateRequest.CommitMSG == "" {
+		return nil, errors.New("Missing commit message")
+	}
+	if CreateRequest.Branch == "" {
+		return nil, errors.New("Missing branch name")
+	}
+	if CreateRequest.BuildID == 0 {
+		return nil, errors.New("Missing build id")
+	}
+
 	resp := pb.CreateBuildResponse{}
 	dir := fmt.Sprintf("%s/%s/%s/%d", base, CreateRequest.Repository, CreateRequest.Branch, CreateRequest.BuildID)
 	err := os.MkdirAll(dir, 0777)
@@ -174,6 +192,15 @@ func (s *BuildRepoServer) GetUploadSlot(ctx context.Context, pr *pb.UploadSlotRe
 		fmt.Printf("Base=\"%s\", but token sent was: \"%s\"\n", base, storeid)
 		return res, errors.New("storeid is invalid")
 	}
+	fbase := filepath.Dir(fname)
+	sp := GetBuildStoreDir(pr.BuildStoreid)
+	absDir := fmt.Sprintf("%s/%s", sp, fbase)
+	fmt.Printf("Filebase: \"%s\" (%s)\n", fbase, absDir)
+	err := os.MkdirAll(absDir, 0777)
+	if err != nil {
+		fmt.Println("Failed to create directory ", absDir, err)
+		return res, err
+	}
 	fmt.Printf("Request to upload file \"%s\" to store \"%s\"\n", fname, storeid)
 	token := RandString(256)
 	res.Token = token
@@ -184,4 +211,8 @@ func (s *BuildRepoServer) GetUploadSlot(ctx context.Context, pr *pb.UploadSlotRe
 func (s *BuildRepoServer) Ping(ctx context.Context, pr *pb.PingRequest) (*pb.PingResponse, error) {
 	fmt.Println("pong")
 	return nil, nil
+}
+
+func GetBuildStoreDir(id string) string {
+	return id
 }
