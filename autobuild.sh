@@ -17,10 +17,9 @@ buildall
 export GOBIN=`pwd`/dist/amd64
 GOOS=linux
 GOARCH=amd64
-
 buildall
 
-cp -v dist/build-repo-client /usr/local/bin/
+cp -v dist/build-repo-client /usr/local/bin/ || exit 10
 build-repo-client -branch=${GIT_BRANCH} -build=${BUILD_NUMBER} -commitid=${COMMIT_ID} -commitmsg="commit msg unknown" -repository=${PROJECT_NAME} -server_addr=buildrepo:5004 
 
 exit 0
