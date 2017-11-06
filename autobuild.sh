@@ -20,7 +20,7 @@ GOARCH=amd64
 
 buildall
 
-cp dist/build-repo-client /usr/local/bin/
+cp -v dist/build-repo-client /usr/local/bin/
 build-repo-client -branch=${GIT_BRANCH} -build=${BUILD_NUMBER} -commitid=${COMMIT_ID} -commitmsg="commit msg unknown" -repository=${PROJECT_NAME} -server_addr=buildrepo:5004 
 
 exit 0
