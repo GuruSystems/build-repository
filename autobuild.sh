@@ -9,4 +9,6 @@ MYSRC=src/golang.conradwood.net/build-repo/
 ( cd ${MYSRC} && make client ) || exit 10
 ( cd ${MYSRC} && make server ) || exit 10
 cp -rvf ${MYSRC}/proto dist/
+
+cp dist/build-repo-client /usr/local/bin/
 exit 0
