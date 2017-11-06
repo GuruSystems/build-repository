@@ -25,11 +25,24 @@ var (
 	commitid    = flag.String("commitid", "", "commit")
 	commitmsg   = flag.String("commitmsg", "", "commit message")
 	buildnumber = flag.Int("build", 0, "build number")
+	distDir     = flag.String("distdir", "dist", "Default directory to upload")
 )
 
 func main() {
 	flag.Parse()
 	files := flag.Args()
+	if len(files) == 0 {
+		fmt.Printf("No files specified on commandline, using \"%s\" as default\n", *distDir)
+		df, err := ioutil.ReadDir(*distDir)
+		if err != nil {
+			fmt.Printf("Failed to read directory \"%s\": %s\n,", *distDir, err)
+			os.Exit(5)
+		}
+		for _, file := range df {
+			fmt.Println(file.Name())
+			files = append(files, fmt.Sprintf("%s/%s", *distDir, file.Name()))
+		}
+	}
 	opts := []grpc.DialOption{grpc.WithInsecure()}
 	fmt.Println("Connecting to server...")
 	conn, err := grpc.Dial(*serverAddr, opts...)
@@ -55,10 +68,15 @@ func main() {
 	fmt.Printf("Response to createbuild was: %v\n", resp)
 	storeid := resp.BuildStoreid
 	serverHost, _, err := net.SplitHostPort(*serverAddr)
+
 	// why "dog"? I learned of the "range" operator from an example
 	// which uses "dogs" - cnw
 	for _, dog := range files {
 		st, err := os.Stat(dog)
+		if err != nil {
+			fmt.Printf("Cannot stat %s: %s, skipping...\n", dog, err)
+			continue
+		}
 		if !st.Mode().IsRegular() {
 			fmt.Printf("Skipping %s - it's not a file\n", dog)
 			continue
