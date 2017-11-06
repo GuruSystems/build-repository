@@ -110,6 +110,11 @@ func main() {
 		defer res.Body.Close()
 		message, _ := ioutil.ReadAll(res.Body)
 		fmt.Printf(string(message))
-
+	}
+	udr := &pb.UploadDoneRequest{BuildStoreid: storeid}
+	_, err = client.UploadsComplete(ctx, udr)
+	if err != nil {
+		fmt.Printf("Failed to complete uploads: %v\n", err)
+		os.Exit(5)
 	}
 }

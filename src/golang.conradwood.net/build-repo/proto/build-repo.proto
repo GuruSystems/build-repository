@@ -32,11 +32,13 @@ string Token=1;
 int32 Port = 2;
 }
 
-message PingRequest {}
-message PingResponse {}
+message UploadDoneRequest {
+string BuildStoreid=1;
+}
+message UploadDoneResponse {}
 
 service BuildRepoManager {
  rpc CreateBuild(CreateBuildRequest) returns (CreateBuildResponse);
  rpc GetUploadSlot(UploadSlotRequest) returns (UploadSlotResponse);
- rpc Ping(PingRequest) returns (PingResponse);
+ rpc UploadsComplete(UploadDoneRequest) returns (UploadDoneResponse);
 }

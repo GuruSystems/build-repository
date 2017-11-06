@@ -258,9 +258,15 @@ func (s *BuildRepoServer) GetUploadSlot(ctx context.Context, pr *pb.UploadSlotRe
 	StoreUploadMetaData(fname, token, storeid)
 	return res, nil
 }
-func (s *BuildRepoServer) Ping(ctx context.Context, pr *pb.PingRequest) (*pb.PingResponse, error) {
-	fmt.Println("pong")
-	return nil, nil
+func (s *BuildRepoServer) UploadsComplete(ctx context.Context, udr *pb.UploadDoneRequest) (*pb.UploadDoneResponse, error) {
+	resp := &pb.UploadDoneResponse{}
+	if udr.BuildStoreid == "" {
+		fmt.Println("No builds store id (to complete)")
+		return nil, errors.New("missing build store id")
+
+	}
+	fmt.Println("Completed uploads for:", udr.BuildStoreid)
+	return resp, nil
 }
 
 func GetBuildStoreDir(id string) string {
