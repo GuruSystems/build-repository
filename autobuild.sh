@@ -15,8 +15,8 @@ cp -rvf ${MYSRC}/proto dist/
 export GOBIN=`pwd`/dist/i386
 buildall
 export GOBIN=`pwd`/dist/amd64
-GOOS=linux
-GOARCH=amd64
+export GOOS=linux
+export GOARCH=amd64
 buildall
 
 cp -v dist/i386/build-repo-client /usr/local/bin/ || exit 10
