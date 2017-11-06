@@ -1,5 +1,9 @@
 package main
 
+// this is a bit random, particularly the upload token we hand back to the client
+// isn't really verified yet
+// don't use it in an untrusted environment!
+
 import (
 	"fmt"
 	"google.golang.org/grpc"
@@ -146,36 +150,47 @@ type BuildRepoServer struct {
 // in java/python we also put pointers to functions into structs and but call them "objects" instead
 // in Go we don't put functions pointers into structs, we "associate" a function with a struct.
 // (I think that's more or less the same as what C does, just different Syntax)
-func (s *BuildRepoServer) CreateBuild(ctx context.Context, CreateRequest *pb.CreateBuildRequest) (*pb.CreateBuildResponse, error) {
+func (s *BuildRepoServer) CreateBuild(ctx context.Context, cr *pb.CreateBuildRequest) (*pb.CreateBuildResponse, error) {
 	peer, ok := peer.FromContext(ctx)
 	if !ok {
 		fmt.Println("Error getting peer ")
 	}
-	if CreateRequest.Repository == "" {
+	if cr.Repository == "" {
 		return nil, errors.New("Missing repository name")
 	}
-	if CreateRequest.CommitID == "" {
+	if cr.CommitID == "" {
 		return nil, errors.New("Missing commit id")
 	}
-	if CreateRequest.CommitMSG == "" {
+	if cr.CommitMSG == "" {
 		return nil, errors.New("Missing commit message")
 	}
-	if CreateRequest.Branch == "" {
+	if cr.Branch == "" {
 		return nil, errors.New("Missing branch name")
 	}
-	if CreateRequest.BuildID == 0 {
+	if cr.BuildID == 0 {
 		return nil, errors.New("Missing build id")
 	}
 
 	resp := pb.CreateBuildResponse{}
-	dir := fmt.Sprintf("%s/%s/%s/%d", base, CreateRequest.Repository, CreateRequest.Branch, CreateRequest.BuildID)
+	dir := fmt.Sprintf("%s/%s/%s/%d", base, cr.Repository, cr.Branch, cr.BuildID)
 	err := os.MkdirAll(dir, 0777)
 	if err != nil {
 		fmt.Println("Failed to create directory ", dir, err)
 		return &resp, err
 	}
+
 	fmt.Println(peer.Addr, "called createbuild")
 	resp.BuildStoreid = dir
+
+	// write env to file in directory
+	metafile := fmt.Sprintf("%s/meta.txt", dir)
+	f, err := os.OpenFile(metafile, os.O_WRONLY|os.O_CREATE, 0755)
+	if err != nil {
+		fmt.Printf("Failed to open file %s: %v\n", metafile, err)
+		return nil, err
+	}
+	f.WriteString(fmt.Sprintf("COMMIT_ID=%s\n", cr.CommitID))
+	defer f.Close()
 	return &resp, nil
 }
 
