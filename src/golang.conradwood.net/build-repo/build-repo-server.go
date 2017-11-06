@@ -1,8 +1,9 @@
 package main
 
-// this is a bit random, particularly the upload token we hand back to the client
-// isn't really verified yet
 // don't use it in an untrusted environment!
+
+// also we WILL leak memory, because we don't clean up the maps if
+// client doesn't go through the completeUpload RPC
 
 import (
 	"fmt"
@@ -19,10 +20,21 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 )
+
+type StoreMetaData struct {
+	StoreID    string
+	StorePath  string
+	BuildID    int
+	CommitID   string
+	Commitmsg  string
+	Branch     string
+	Repository string
+}
 
 type UploadMetaData struct {
 	Token    string
@@ -38,8 +50,10 @@ var (
 	port     = flag.Int("port", 5004, "The server port")
 	httpport = flag.Int("http_port", 5005, "The http server port")
 	base     = "/srv/build-repository/artefacts"
+	hooksdir = flag.String("hooks", "/srv/build-repository/hooks", "Directory to search for hooks")
 	src      = rand.NewSource(time.Now().UnixNano())
 	uploads  = make(map[string]UploadMetaData)
+	storeids = make(map[string]StoreMetaData)
 	httpPort int
 )
 
@@ -75,7 +89,7 @@ func RandString(n int) string {
 
 func FindUploadMetaData(token string) UploadMetaData {
 	umd := uploads[token]
-	umd.Storepath = umd.Storeid
+	umd.Storepath = StoreIDToDir(umd.Storeid)
 	return umd
 }
 func StoreUploadMetaData(vfilename string, vtoken string, vstoreid string) {
@@ -87,6 +101,30 @@ func StoreUploadMetaData(vfilename string, vtoken string, vstoreid string) {
 	}
 	uploads[vtoken] = umd
 
+}
+
+func StoreIDToDir(storeid string) string {
+	return storeids[storeid].StorePath
+}
+func DirToStoreID(dir string, buildid int, commitid string, msg string, branch string, repo string) string {
+	id := RandString(128)
+	smd := StoreMetaData{
+		BuildID:    buildid,
+		CommitID:   commitid,
+		Commitmsg:  msg,
+		Branch:     branch,
+		Repository: repo,
+	}
+	smd.StorePath = dir
+	smd.StoreID = id
+	storeids[id] = smd
+	return id
+}
+func getStoreByID(id string) StoreMetaData {
+	return storeids[id]
+}
+func removeStoreID(id string) {
+	delete(storeids, id)
 }
 
 /**************************************************
@@ -136,6 +174,7 @@ func upload(w http.ResponseWriter, r *http.Request) {
 	}
 	defer f.Close()
 	io.Copy(f, r.Body)
+	return
 
 }
 
@@ -180,7 +219,7 @@ func (s *BuildRepoServer) CreateBuild(ctx context.Context, cr *pb.CreateBuildReq
 	}
 	fmt.Println("Created directory:", dir)
 	fmt.Println(peer.Addr, "called createbuild")
-	resp.BuildStoreid = dir
+	resp.BuildStoreid = DirToStoreID(dir, int(cr.BuildID), cr.CommitID, cr.CommitMSG, cr.Branch, cr.Repository)
 
 	// write env to file in directory
 	metafile := fmt.Sprintf("%s/meta.txt", dir)
@@ -238,12 +277,13 @@ func (s *BuildRepoServer) GetUploadSlot(ctx context.Context, pr *pb.UploadSlotRe
 	if filepath.IsAbs(fname) {
 		return res, errors.New("file must be relative")
 	}
-	if !strings.HasPrefix(storeid, base) {
-		fmt.Printf("Base=\"%s\", but token sent was: \"%s\"\n", base, storeid)
+	sp := StoreIDToDir(pr.BuildStoreid)
+	if !strings.HasPrefix(sp, base) {
+		fmt.Printf("Base=\"%s\", but token sent was: \"%s\"\n", base, sp)
 		return res, errors.New("storeid is invalid")
 	}
 	fbase := filepath.Dir(fname)
-	sp := GetBuildStoreDir(pr.BuildStoreid)
+
 	absDir := fmt.Sprintf("%s/%s", sp, fbase)
 	fmt.Printf("Filebase: \"%s\" (%s)\n", fbase, absDir)
 	err := os.MkdirAll(absDir, 0777)
@@ -258,6 +298,8 @@ func (s *BuildRepoServer) GetUploadSlot(ctx context.Context, pr *pb.UploadSlotRe
 	StoreUploadMetaData(fname, token, storeid)
 	return res, nil
 }
+
+// all done, now call any hooks we might find
 func (s *BuildRepoServer) UploadsComplete(ctx context.Context, udr *pb.UploadDoneRequest) (*pb.UploadDoneResponse, error) {
 	resp := &pb.UploadDoneResponse{}
 	if udr.BuildStoreid == "" {
@@ -265,10 +307,62 @@ func (s *BuildRepoServer) UploadsComplete(ctx context.Context, udr *pb.UploadDon
 		return nil, errors.New("missing build store id")
 
 	}
-	fmt.Println("Completed uploads for:", udr.BuildStoreid)
+	store := getStoreByID(udr.BuildStoreid)
+	path := store.StorePath
+	fmt.Println("Completed uploads for:", path)
+	if !strings.HasPrefix(path, base) {
+		fmt.Printf("Invalid path \"%s\", must start with \"%s\"\n", path, base)
+		return nil, errors.New("Invalid path")
+	}
+	relpath := strings.SplitAfter(path, base)
+	if len(relpath) != 2 {
+		fmt.Printf("Invalid len (%d)\n", len(relpath))
+		return nil, errors.New("Invalid path")
+	}
+	hookdir := fmt.Sprintf("%s/%s", *hooksdir, relpath[1])
+	hookdir = filepath.Clean(hookdir)
+	hookdir = filepath.Dir(hookdir)
+	fmt.Printf("Looking for hooks in %s\n", hookdir)
+	execute(store, hookdir, "post-upload")
+	removeStoreID(store.StoreID)
 	return resp, nil
 }
 
-func GetBuildStoreDir(id string) string {
-	return id
+// returns true if it executed it, false if file not found
+// and error if file exists but something went wrong
+func execute(store StoreMetaData, dir string, scriptname string) (bool, error) {
+	fname := fmt.Sprintf("%s/%s", dir, scriptname)
+	st, err := os.Stat(fname)
+	if err != nil {
+		if os.IsNotExist(err) {
+			fmt.Printf("%s does not exist\n", fname)
+			return false, nil
+		}
+		return false, err
+	}
+	if !st.Mode().IsRegular() {
+		fmt.Printf("%s is not a regular file\n", fname)
+		return false, errors.New("hook is not a regular file")
+	}
+	fmt.Println("Executing ", fname)
+	cmd := exec.Command(fname)
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("COMMIT_ID=%s", store.CommitID),
+		fmt.Sprintf("COMMIT_MSG=%s", store.Commitmsg),
+		fmt.Sprintf("GIT_BRANCH=%s", store.Branch),
+		fmt.Sprintf("BUILD_NUMBER=%d", store.BuildID),
+		fmt.Sprintf("PROJECT_NAME=%s", store.Repository),
+		fmt.Sprintf("REPOSITORY=%s", store.Repository),
+		fmt.Sprintf("DIST=%s", store.StorePath),
+		fmt.Sprintf("BUILDDIR=%s", store.StorePath),
+		fmt.Sprintf("ARTEFACT=%s", store.StorePath),
+	)
+	out, err := cmd.Output()
+	if err != nil {
+		fmt.Printf("failed to execute %s: %s\n", fname, err)
+		return true, err
+	}
+	fmt.Printf("Output: %s\n", out)
+
+	return true, nil
 }
