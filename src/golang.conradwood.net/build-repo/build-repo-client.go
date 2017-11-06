@@ -19,7 +19,7 @@ import (
 
 // static variables for flag parser
 var (
-	serverAddr  = flag.String("server_addr", "apps.guru.localdomain:5004", "The server address in the format of host:port")
+	serverAddr  = flag.String("server_addr", "localhost:5004", "The server address in the format of host:port")
 	reponame    = flag.String("repository", "", "name of repository")
 	branchname  = flag.String("branch", "", "branch of commit")
 	commitid    = flag.String("commitid", "", "commit")

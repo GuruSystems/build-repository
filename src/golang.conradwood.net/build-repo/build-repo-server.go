@@ -178,7 +178,7 @@ func (s *BuildRepoServer) CreateBuild(ctx context.Context, cr *pb.CreateBuildReq
 		fmt.Println("Failed to create directory ", dir, err)
 		return &resp, err
 	}
-
+	fmt.Println("Created directory:", dir)
 	fmt.Println(peer.Addr, "called createbuild")
 	resp.BuildStoreid = dir
 
@@ -189,9 +189,44 @@ func (s *BuildRepoServer) CreateBuild(ctx context.Context, cr *pb.CreateBuildReq
 		fmt.Printf("Failed to open file %s: %v\n", metafile, err)
 		return nil, err
 	}
-	f.WriteString(fmt.Sprintf("COMMIT_ID=%s\n", cr.CommitID))
 	defer f.Close()
+	f.WriteString(fmt.Sprintf("COMMIT_ID=%s\n", cr.CommitID))
+	f.WriteString(fmt.Sprintf("BUILD_ID=%s\n", cr.BuildID))
+
+	linkdir := fmt.Sprintf("%s/%s/%s", base, cr.Repository, cr.Branch)
+	err = UpdateSymLink(linkdir, int(cr.BuildID))
+	if err != nil {
+		fmt.Printf("Failed to create symlink in %s: %v\n", linkdir, err)
+		return nil, err
+	}
 	return &resp, nil
+}
+
+func UpdateSymLink(dir string, latestBuild int) error {
+	linkName := fmt.Sprintf("%s/latest", dir)
+	fmt.Printf("linking \"latest\" in dir %s to %d\n", dir, latestBuild)
+	err := os.Chdir(dir)
+	if err != nil {
+		fmt.Printf("Failed to chdir to %s: %v\n", dir, err)
+		return err
+	}
+
+	err = os.Symlink(fmt.Sprintf("%d", latestBuild), "latest")
+	if err == nil {
+		return nil
+	}
+	if os.IsExist(err) {
+		os.Remove(linkName)
+		err = os.Symlink(fmt.Sprintf("%d", latestBuild), "latest")
+		if err != nil {
+			fmt.Printf("Tried to remove symlink but still failed to create it: %s: %s\n", linkName, err)
+			return err
+		}
+	} else {
+		fmt.Printf("Failed to create symlink in %s: %v\n", dir, err)
+		return err
+	}
+	return nil
 }
 
 func (s *BuildRepoServer) GetUploadSlot(ctx context.Context, pr *pb.UploadSlotRequest) (*pb.UploadSlotResponse, error) {
