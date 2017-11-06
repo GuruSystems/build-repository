@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"google.golang.org/grpc"
 	//	"github.com/golang/protobuf/proto"
+	"errors"
 	"flag"
 	"golang.org/x/net/context"
 	//	"net"
@@ -69,6 +70,16 @@ func main() {
 	storeid := resp.BuildStoreid
 	serverHost, _, err := net.SplitHostPort(*serverAddr)
 
+	uploadFiles(ctx, client, storeid, serverHost, files)
+	udr := &pb.UploadDoneRequest{BuildStoreid: storeid}
+	_, err = client.UploadsComplete(ctx, udr)
+	if err != nil {
+		fmt.Printf("Failed to complete uploads: %v\n", err)
+		os.Exit(5)
+	}
+}
+
+func uploadFiles(ctx context.Context, client pb.BuildRepoManagerClient, storeid string, serverHost string, files []string) error {
 	// why "dog"? I learned of the "range" operator from an example
 	// which uses "dogs" - cnw
 	for _, dog := range files {
@@ -76,6 +87,21 @@ func main() {
 		if err != nil {
 			fmt.Printf("Cannot stat %s: %s, skipping...\n", dog, err)
 			continue
+		}
+		if st.Mode().IsDir() {
+			var nfiles []string
+			df, err := ioutil.ReadDir(dog)
+			if err != nil {
+				fmt.Printf("Failed to read directory \"%s\": %s\n,", dog, err)
+				return errors.New("Failed to read directory")
+			}
+			for _, file := range df {
+				nf := fmt.Sprintf("%s/%s", dog, file.Name())
+				nfiles = append(nfiles, nf)
+			}
+			uploadFiles(ctx, client, storeid, serverHost, nfiles)
+			continue
+
 		}
 		if !st.Mode().IsRegular() {
 			fmt.Printf("Skipping %s - it's not a file\n", dog)
@@ -111,10 +137,5 @@ func main() {
 		message, _ := ioutil.ReadAll(res.Body)
 		fmt.Printf(string(message))
 	}
-	udr := &pb.UploadDoneRequest{BuildStoreid: storeid}
-	_, err = client.UploadsComplete(ctx, udr)
-	if err != nil {
-		fmt.Printf("Failed to complete uploads: %v\n", err)
-		os.Exit(5)
-	}
+	return nil
 }
