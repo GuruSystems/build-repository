@@ -1,2 +1,5 @@
-{{range .}}{{.Type}} {{.Name}}
+REPOSITORY={{.Pi.Repository}}
+BRANCH={{.Pi.Branch}}
+BUILD={{.Pi.Version}}
+{{range .Entries}}{{.Type}} {{.Name}}
 {{end}}

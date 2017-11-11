@@ -1,5 +1,10 @@
 <html>
-<body>
-{{range .}}{{.Name}}<br/>
+  <body>
+    Target: {{.Pi.ReqTarget}}<br/>
+    Path: {{.Path}}<br/>
+    <a href="{{.Top}}">Top</a>
+    <a href="{{.Up}}">Up</a><br/>
+    {{$path:=.Path}}
+{{range .Entries}}{{.Type}} <a href="{{$path}}/{{.Name}}">{{.Name}}</a><br/>
 {{end}}</body>
 </html>

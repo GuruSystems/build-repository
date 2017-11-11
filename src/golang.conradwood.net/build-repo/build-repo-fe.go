@@ -42,17 +42,18 @@ var (
 	httpPort  = flag.Int("http_port", 7005, "The http server port")
 	buildRepo = flag.String("server_addr", "localhost:5004", "The build-repo server address in the format of host:port")
 	buildconn *grpc.ClientConn
+	basePath  = flag.String("http_path", "/Buildrepo/", "The build-repo server path of the url")
 )
 
 /**************************************************
 * helpers
 ***************************************************/
 const (
-	listRepos    = iota
-	listBranches = iota
-	listVersions = iota
-	listFiles    = iota
-	getFile      = iota
+	listRepos    = 1
+	listBranches = 2
+	listVersions = 3
+	listFiles    = 4
+	getFile      = 5
 )
 
 type PathInfo struct {
@@ -61,28 +62,43 @@ type PathInfo struct {
 	Version    string
 	Filename   string
 	// reqTarget indicates what we're trying to reach
-	reqTarget int
+	ReqTarget int
 	// output extension?
 	output string
+}
+
+type RenderInfo struct {
+	// current path to stuff (prefix to links)
+	Path    string
+	Top     string
+	Up      string
+	Pi      *PathInfo
+	Entries []*pb.RepoEntry
 }
 
 /**************************************************
 * main entry
 ***************************************************/
 func parsePath(path string) *PathInfo {
-	fmt.Printf("Request for \"%s\"\n", path)
-	res := PathInfo{}
-	if path == "/" {
-		res.reqTarget = listRepos
-		return &res
+	if strings.HasPrefix(path, *basePath) {
+		path = strings.TrimLeft(path, *basePath)
 	}
-	path, err := filepath.Rel("/", path)
-	if err != nil {
-		fmt.Printf("Failed to parse url path: \"%s\"n", path)
+	if path == "/favicon.ico" { // annoying
 		return nil
 	}
-	res.output = "html" // default serve result as html
+	fmt.Printf("Request for \"%s\"\n", path)
+	res := PathInfo{output: "html"} // default serve result as html
 
+	if path == "/" || path == "" {
+		res.ReqTarget = listRepos
+		return &res
+	}
+	/*	path, err := filepath.Rel("/", path)
+		if err != nil {
+			fmt.Printf("Failed to parse url path \"%s\": %s\n", path, err)
+			return nil
+		}
+	*/
 	types := []string{"info", "txt", "xml"}
 	for _, t := range types {
 		tp := fmt.Sprintf(".%s", t)
@@ -97,18 +113,19 @@ func parsePath(path string) *PathInfo {
 			fmt.Printf("Failed to parse url path: \"%s\" at pos #%d: \"%s\"!\n", path, i, s)
 			return nil
 		}
+		fmt.Printf("#%d: \"%s\"\n", i, s)
 		if i == 0 {
 			res.Repository = s
-			res.reqTarget = listBranches
+			res.ReqTarget = listBranches
 		} else if i == 1 {
 			res.Branch = s
-			res.reqTarget = listVersions
+			res.ReqTarget = listVersions
 		} else if i == 2 {
 			res.Version = s
-			res.reqTarget = listFiles
+			res.ReqTarget = listFiles
 		} else if i == 3 {
 			res.Filename = s
-			res.reqTarget = getFile
+			res.ReqTarget = getFile
 		}
 	}
 	return &res
@@ -125,27 +142,31 @@ func serveContent(pi *PathInfo, w http.ResponseWriter, r *http.Request) error {
 	if buildconn == nil {
 		return errors.New("Unable to create RPC client")
 	}
-
+	ri := RenderInfo{Pi: pi,
+		Top: *basePath,
+	}
 	// default template (only different for files)
 	tmplname := fmt.Sprintf("templates/directory_listing.%s", pi.output)
 
-	if pi.reqTarget == listRepos {
+	if pi.ReqTarget == listRepos {
 		// list repos
 		sr := pb.ListReposRequest{}
 		sa, e := client.ListRepos(ctx, &sr)
 		if e != nil {
 			return e
 		}
-		entries = sa.Repositories
-	} else if pi.reqTarget == listBranches {
+		entries = sa.Entries
+		ri.Path = ""
+	} else if pi.ReqTarget == listBranches {
 		// list branches
 		sr := pb.ListBranchesRequest{Repository: pi.Repository}
 		sa, e := client.ListBranches(ctx, &sr)
 		if e != nil {
 			return e
 		}
-		entries = sa.Branches
-	} else if pi.reqTarget == listVersions {
+		entries = sa.Entries
+		ri.Path = fmt.Sprintf("%s", pi.Repository)
+	} else if pi.ReqTarget == listVersions {
 		// list versions
 		sr := pb.ListVersionsRequest{Repository: pi.Repository,
 			Branch: pi.Branch}
@@ -153,29 +174,38 @@ func serveContent(pi *PathInfo, w http.ResponseWriter, r *http.Request) error {
 		if e != nil {
 			return e
 		}
-		entries = sa.Versions
-	} else if pi.reqTarget == listFiles {
-		// list versions
+		ri.Path = fmt.Sprintf("%s/%s", pi.Repository, pi.Branch)
+		entries = sa.Entries
+	} else if pi.ReqTarget == listFiles {
+		// list files
 		sr := pb.ListFilesRequest{Repository: pi.Repository,
 			Branch: pi.Branch, Version: pi.Version}
 		sa, e := client.ListFiles(ctx, &sr)
 		if e != nil {
 			return e
 		}
-		entries = sa.Files
+		ri.Path = fmt.Sprintf("%s/%s/%s", pi.Repository, pi.Branch, pi.Version)
+		entries = sa.Entries
+
 	} else {
-		return errors.New(fmt.Sprintf("Type %d not implemented", pi.reqTarget))
+
+		return errors.New(fmt.Sprintf("Type %d not implemented", pi.ReqTarget))
 	}
 	if err != nil {
 		fmt.Println("Failed to retrieve %v: %s\n", pi, err)
 		return err
 	}
+
+	// move the path in to our subpath
+	ri.Path = filepath.Clean(fmt.Sprintf("%s/%s", *basePath, ri.Path))
+
 	tmpl, err := template.ParseFiles(tmplname)
 	if err != nil {
 		fmt.Printf("Failed to parse template %s: %s\n", tmplname, err)
 		return err
 	}
-	err = tmpl.Execute(w, entries)
+	ri.Entries = entries
+	err = tmpl.Execute(w, ri)
 	if err != nil {
 		fmt.Printf("Failed to execute template %s\n", err)
 		return err

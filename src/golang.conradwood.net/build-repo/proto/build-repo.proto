@@ -44,14 +44,14 @@ int32 Type=2;
 message ListReposRequest{
 }
 message ListReposResponse{
-repeated RepoEntry Repositories=1;
+repeated RepoEntry Entries=1;
 }
 
 message ListBranchesRequest {
 string Repository =1;
 }
 message ListBranchesResponse {
-repeated RepoEntry Branches=1;
+repeated RepoEntry Entries=1;
 }
 
 message ListVersionsRequest {
@@ -59,7 +59,7 @@ string Repository=1;
 string Branch =2;
 }
 message ListVersionsResponse {
-repeated RepoEntry Versions=1;
+repeated RepoEntry Entries=1;
 }
 message ListFilesRequest {
 string Repository=1;
@@ -67,7 +67,7 @@ string Branch =2;
 string Version=3;
 }
 message ListFilesResponse {
-repeated RepoEntry Files=1;
+repeated RepoEntry Entries=1;
 }
 
 service BuildRepoManager {

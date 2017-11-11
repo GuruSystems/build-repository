@@ -383,16 +383,10 @@ func execute(store StoreMetaData, dir string, scriptname string) (bool, error) {
 }
 func (s *BuildRepoServer) ListRepos(ctx context.Context, req *pb.ListReposRequest) (*pb.ListReposResponse, error) {
 	res := pb.ListReposResponse{}
-	fis, err := ioutil.ReadDir(base)
+	e, err := ReadEntries(base)
+	res.Entries = e
 	if err != nil {
 		return nil, err
-	}
-	for idx, fi := range fis {
-		fmt.Printf("%d. Repo: %s\n", idx, fi.Name())
-		re := pb.RepoEntry{}
-		re.Name = fi.Name()
-		re.Type = 1
-		res.Repositories = append(res.Repositories, &re)
 	}
 	return &res, nil
 }
@@ -403,17 +397,11 @@ func (s *BuildRepoServer) ListBranches(ctx context.Context, req *pb.ListBranches
 		return nil, errors.New(fmt.Sprintf("Invalid name \"%s\"", repo))
 	}
 	repodir := fmt.Sprintf("%s/%s", base, repo)
-	fis, err := ioutil.ReadDir(repodir)
+	res := pb.ListBranchesResponse{}
+	e, err := ReadEntries(repodir)
+	res.Entries = e
 	if err != nil {
 		return nil, err
-	}
-	res := pb.ListBranchesResponse{}
-	for idx, fi := range fis {
-		fmt.Printf("%d. Repo: %s\n", idx, fi.Name())
-		re := pb.RepoEntry{}
-		re.Name = fi.Name()
-		re.Type = 1
-		res.Branches = append(res.Branches, &re)
 	}
 	return &res, nil
 }
@@ -429,17 +417,11 @@ func (s *BuildRepoServer) ListVersions(ctx context.Context, req *pb.ListVersions
 	}
 	fmt.Printf("Listing versions for repo %s and branch %s\n", repo, branch)
 	repodir := fmt.Sprintf("%s/%s/%s", base, repo, branch)
-	fis, err := ioutil.ReadDir(repodir)
+	res := pb.ListVersionsResponse{}
+	e, err := ReadEntries(repodir)
+	res.Entries = e
 	if err != nil {
 		return nil, err
-	}
-	res := pb.ListVersionsResponse{}
-	for idx, fi := range fis {
-		fmt.Printf("%d. Repo: %s\n", idx, fi.Name())
-		re := pb.RepoEntry{}
-		re.Name = fi.Name()
-		re.Type = 1
-		res.Versions = append(res.Versions, &re)
 	}
 	return &res, nil
 }
@@ -463,7 +445,7 @@ func (s *BuildRepoServer) ListFiles(ctx context.Context, req *pb.ListFilesReques
 	if err != nil {
 		return nil, err
 	}
-	res.Files = x
+	res.Entries = x
 	return &res, nil
 }
 
