@@ -9,6 +9,8 @@ server:
 	go install build-repo-server.go 
 client:
 	go install build-repo-client.go
+frontend:
+	go install build-repo-fe.go
 
 .PHONY: proto
 proto:

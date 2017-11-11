@@ -1,0 +1,3 @@
+<listing>
+{{range .}}  <entry type="{{.Type}}">{{.Name}}</entry>
+{{end}}</listing>

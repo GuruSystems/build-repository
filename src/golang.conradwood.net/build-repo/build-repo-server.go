@@ -15,6 +15,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/peer"
 	"io"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"net"
@@ -54,7 +55,6 @@ var (
 	src      = rand.NewSource(time.Now().UnixNano())
 	uploads  = make(map[string]UploadMetaData)
 	storeids = make(map[string]StoreMetaData)
-	httpPort int
 )
 
 /**************************************************
@@ -127,13 +127,28 @@ func removeStoreID(id string) {
 	delete(storeids, id)
 }
 
+// check if it's a valid name for a repo or branch,
+// basically no / or .. or . or so allowed
+func isValidName(path string) bool {
+	if path == "" {
+		return false
+	}
+	if strings.Contains(path, "/") {
+		return false
+	}
+	if strings.Contains(path, ".") {
+		return false
+	}
+	return true
+}
+
 /**************************************************
 * main entry
 ***************************************************/
 func main() {
 	flag.Parse() // parse stuff. see "var" section above
 	listenAddr := fmt.Sprintf(":%d", *port)
-	httpPort = *httpport
+	*httpport = *httpport
 	lis, err := net.Listen("tcp4", fmt.Sprintf(":%d", *port))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
@@ -146,8 +161,8 @@ func main() {
 	s := new(BuildRepoServer)
 	pb.RegisterBuildRepoManagerServer(grpcServer, s) // created by proto
 
-	fmt.Printf("Starting  http service on port %d\n", httpPort)
-	go http.ListenAndServe(fmt.Sprintf(":%d", httpPort), nil)
+	fmt.Printf("Starting  http service on port %d\n", *httpport)
+	go http.ListenAndServe(fmt.Sprintf(":%d", *httpport), nil)
 
 	fmt.Printf("Starting BuildRepo Manager service on %s\n", listenAddr)
 	grpcServer.Serve(lis)
@@ -294,7 +309,7 @@ func (s *BuildRepoServer) GetUploadSlot(ctx context.Context, pr *pb.UploadSlotRe
 	fmt.Printf("Request to upload file \"%s\" to store \"%s\"\n", fname, storeid)
 	token := RandString(256)
 	res.Token = token
-	res.Port = int32(httpPort)
+	res.Port = int32(*httpport)
 	StoreUploadMetaData(fname, token, storeid)
 	return res, nil
 }
@@ -365,4 +380,108 @@ func execute(store StoreMetaData, dir string, scriptname string) (bool, error) {
 	fmt.Printf("Output: %s\n", out)
 
 	return true, nil
+}
+func (s *BuildRepoServer) ListRepos(ctx context.Context, req *pb.ListReposRequest) (*pb.ListReposResponse, error) {
+	res := pb.ListReposResponse{}
+	fis, err := ioutil.ReadDir(base)
+	if err != nil {
+		return nil, err
+	}
+	for idx, fi := range fis {
+		fmt.Printf("%d. Repo: %s\n", idx, fi.Name())
+		re := pb.RepoEntry{}
+		re.Name = fi.Name()
+		re.Type = 1
+		res.Repositories = append(res.Repositories, &re)
+	}
+	return &res, nil
+}
+func (s *BuildRepoServer) ListBranches(ctx context.Context, req *pb.ListBranchesRequest) (*pb.ListBranchesResponse, error) {
+	repo := req.Repository
+	fmt.Printf("Listing branches of repository %s\n", repo)
+	if !isValidName(repo) {
+		return nil, errors.New(fmt.Sprintf("Invalid name \"%s\"", repo))
+	}
+	repodir := fmt.Sprintf("%s/%s", base, repo)
+	fis, err := ioutil.ReadDir(repodir)
+	if err != nil {
+		return nil, err
+	}
+	res := pb.ListBranchesResponse{}
+	for idx, fi := range fis {
+		fmt.Printf("%d. Repo: %s\n", idx, fi.Name())
+		re := pb.RepoEntry{}
+		re.Name = fi.Name()
+		re.Type = 1
+		res.Branches = append(res.Branches, &re)
+	}
+	return &res, nil
+}
+
+func (s *BuildRepoServer) ListVersions(ctx context.Context, req *pb.ListVersionsRequest) (*pb.ListVersionsResponse, error) {
+	repo := req.Repository
+	if !isValidName(repo) {
+		return nil, errors.New(fmt.Sprintf("Invalid repo name \"%s\"", repo))
+	}
+	branch := req.Branch
+	if !isValidName(branch) {
+		return nil, errors.New(fmt.Sprintf("Invalid branch name \"%s\"", branch))
+	}
+	fmt.Printf("Listing versions for repo %s and branch %s\n", repo, branch)
+	repodir := fmt.Sprintf("%s/%s/%s", base, repo, branch)
+	fis, err := ioutil.ReadDir(repodir)
+	if err != nil {
+		return nil, err
+	}
+	res := pb.ListVersionsResponse{}
+	for idx, fi := range fis {
+		fmt.Printf("%d. Repo: %s\n", idx, fi.Name())
+		re := pb.RepoEntry{}
+		re.Name = fi.Name()
+		re.Type = 1
+		res.Versions = append(res.Versions, &re)
+	}
+	return &res, nil
+}
+func (s *BuildRepoServer) ListFiles(ctx context.Context, req *pb.ListFilesRequest) (*pb.ListFilesResponse, error) {
+	repo := req.Repository
+	if !isValidName(repo) {
+		return nil, errors.New(fmt.Sprintf("Invalid repo name \"%s\"", repo))
+	}
+	branch := req.Branch
+	if !isValidName(branch) {
+		return nil, errors.New(fmt.Sprintf("Invalid branch name \"%s\"", branch))
+	}
+	build := req.Version
+	if !isValidName(build) {
+		return nil, errors.New(fmt.Sprintf("Invalid build name \"%s\"", build))
+	}
+	fmt.Printf("Listing versions for repo %s and branch %s and build %s\n", repo, branch, build)
+	repodir := fmt.Sprintf("%s/%s/%s/%s", base, repo, branch, build)
+	res := pb.ListFilesResponse{}
+	x, err := ReadEntries(repodir)
+	if err != nil {
+		return nil, err
+	}
+	res.Files = x
+	return &res, nil
+}
+
+func ReadEntries(dir string) ([]*pb.RepoEntry, error) {
+	fis, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	var res []*pb.RepoEntry
+	for idx, fi := range fis {
+		fmt.Printf("%d. Repo: %s\n", idx, fi.Name())
+		re := pb.RepoEntry{}
+		re.Name = fi.Name()
+		re.Type = 1
+		if fi.IsDir() {
+			re.Type = 2
+		}
+		res = append(res, &re)
+	}
+	return res, nil
 }
