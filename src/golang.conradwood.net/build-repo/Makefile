@@ -1,9 +1,10 @@
 PROTOCINC = -I.
-PROTOCINC += -I${GOPATH}/src/
-PROTOCINC += -I${GOPATH}/src/github.com/googleapis/googleapis/third_party/protobuf/src/
-PROTOCINC += -I${GOPATH}/src/github.com/googleapis/googleapis/
-PROTOCINC += -I${GOPATH}/src/github.com/googleapis/googleapis/third_party/
-PROTOCINC += -I${GOPATH}/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis
+PROTOCINC += -I${GOPATH}/src/golang.conradwood.net/vendor/
+PROTOCINC += -I${GOPATH}/src/golang.conradwood.net/vendor/github.com/googleapis/googleapis/third_party/protobuf/src/
+PROTOCINC += -I${GOPATH}/src/golang.conradwood.net/vendor/github.com/googleapis/googleapis/
+PROTOCINC += -I${GOPATH}/src/golang.conradwood.net/vendor/github.com/googleapis/googleapis/third_party/
+PROTOCINC += -I${GOPATH}/src/golang.conradwood.net/vendor/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis
+
 
 server:
 	go install build-repo-server.go 
