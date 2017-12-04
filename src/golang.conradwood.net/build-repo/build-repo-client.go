@@ -27,6 +27,7 @@ var (
 	commitmsg   = flag.String("commitmsg", "", "commit message")
 	buildnumber = flag.Int("build", 0, "build number")
 	distDir     = flag.String("distdir", "dist", "Default directory to upload")
+	dryrun      = flag.Bool("n", false, "dry-run")
 )
 
 func main() {
@@ -44,18 +45,14 @@ func main() {
 			files = append(files, fmt.Sprintf("%s/%s", *distDir, file.Name()))
 		}
 	}
+	AddDirIfExists("deployment", &files)
 
-	// and always append "autodeploy" directory:
-	df, err := ioutil.ReadDir("autodeploy")
-	if err != nil {
-		fmt.Printf("Failed to read directory \"%s\": %s\n,", *distDir, err)
-		os.Exit(5)
+	if *dryrun {
+		for _, file := range files {
+			fmt.Printf("Uploading file: %s\n", file)
+		}
+		return
 	}
-	for _, file := range df {
-		fmt.Println(file.Name())
-		files = append(files, fmt.Sprintf("%s/%s", *distDir, file.Name()))
-	}
-
 	opts := []grpc.DialOption{grpc.WithInsecure()}
 	fmt.Println("Connecting to server...")
 	conn, err := grpc.Dial(*serverAddr, opts...)
@@ -148,6 +145,19 @@ func uploadFiles(ctx context.Context, client pb.BuildRepoManagerClient, storeid 
 		defer res.Body.Close()
 		message, _ := ioutil.ReadAll(res.Body)
 		fmt.Printf(string(message))
+	}
+	return nil
+}
+
+func AddDirIfExists(dirname string, files *[]string) error {
+	df, err := ioutil.ReadDir(dirname)
+	if err != nil {
+		fmt.Printf("Failed to read directory \"%s\": %s\n,", *distDir, err)
+		return err
+	}
+	for _, file := range df {
+		fmt.Println(file.Name())
+		*files = append(*files, fmt.Sprintf("%s/%s", dirname, file.Name()))
 	}
 	return nil
 }
