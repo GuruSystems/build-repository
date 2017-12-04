@@ -170,7 +170,7 @@ func main() {
 }
 
 func upload(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("HTTP Upload method: %s, content-type: %s\n", r.Method, r.Header.Get("Content-Type"))
+	//fmt.Printf("HTTP Upload method: %s, content-type: %s\n", r.Method, r.Header.Get("Content-Type"))
 	token := r.URL.Path
 	if !strings.HasPrefix(token, "/upload/") {
 		fmt.Println("Invalid token: ", token)
@@ -300,7 +300,7 @@ func (s *BuildRepoServer) GetUploadSlot(ctx context.Context, pr *pb.UploadSlotRe
 	fbase := filepath.Dir(fname)
 
 	absDir := fmt.Sprintf("%s/%s", sp, fbase)
-	fmt.Printf("Filebase: \"%s\" (%s)\n", fbase, absDir)
+	//fmt.Printf("Filebase: \"%s\" (%s)\n", fbase, absDir)
 	err := os.MkdirAll(absDir, 0777)
 	if err != nil {
 		fmt.Println("Failed to create directory ", absDir, err)
@@ -372,7 +372,7 @@ func execute(store StoreMetaData, dir string, scriptname string) (bool, error) {
 		fmt.Sprintf("BUILDDIR=%s", store.StorePath),
 		fmt.Sprintf("ARTEFACT=%s", store.StorePath),
 	)
-	out, err := cmd.Output()
+	out, err := cmd.CombinedOutput()
 	if err != nil {
 		fmt.Printf("failed to execute %s: %s\n", fname, err)
 		return true, err
