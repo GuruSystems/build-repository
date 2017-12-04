@@ -152,7 +152,7 @@ func uploadFiles(ctx context.Context, client pb.BuildRepoManagerClient, storeid 
 func AddDirIfExists(dirname string, files *[]string) error {
 	df, err := ioutil.ReadDir(dirname)
 	if err != nil {
-		fmt.Printf("Failed to read directory \"%s\": %s\n,", *distDir, err)
+		fmt.Printf("Failed to read directory \"%s\": %s\n,", dirname, err)
 		return err
 	}
 	for _, file := range df {
