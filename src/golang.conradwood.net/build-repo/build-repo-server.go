@@ -373,11 +373,11 @@ func execute(store StoreMetaData, dir string, scriptname string) (bool, error) {
 		fmt.Sprintf("ARTEFACT=%s", store.StorePath),
 	)
 	out, err := cmd.CombinedOutput()
+	fmt.Printf("Output: %s\n", out)
 	if err != nil {
 		fmt.Printf("failed to execute %s: %s\n", fname, err)
 		return true, err
 	}
-	fmt.Printf("Output: %s\n", out)
 
 	return true, nil
 }
