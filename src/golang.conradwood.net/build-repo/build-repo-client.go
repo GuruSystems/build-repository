@@ -44,6 +44,18 @@ func main() {
 			files = append(files, fmt.Sprintf("%s/%s", *distDir, file.Name()))
 		}
 	}
+
+	// and always append "autodeploy" directory:
+	df, err := ioutil.ReadDir("autodeploy")
+	if err != nil {
+		fmt.Printf("Failed to read directory \"%s\": %s\n,", *distDir, err)
+		os.Exit(5)
+	}
+	for _, file := range df {
+		fmt.Println(file.Name())
+		files = append(files, fmt.Sprintf("%s/%s", *distDir, file.Name()))
+	}
+
 	opts := []grpc.DialOption{grpc.WithInsecure()}
 	fmt.Println("Connecting to server...")
 	conn, err := grpc.Dial(*serverAddr, opts...)
