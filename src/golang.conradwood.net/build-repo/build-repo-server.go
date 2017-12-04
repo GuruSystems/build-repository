@@ -306,7 +306,7 @@ func (s *BuildRepoServer) GetUploadSlot(ctx context.Context, pr *pb.UploadSlotRe
 		fmt.Println("Failed to create directory ", absDir, err)
 		return res, err
 	}
-	fmt.Printf("Request to upload file \"%s\" to store \"%s\"\n", fname, storeid)
+	//fmt.Printf("Request to upload file \"%s\" to store \"%s\"\n", fname, storeid)
 	token := RandString(256)
 	res.Token = token
 	res.Port = int32(*httpport)
