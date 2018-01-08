@@ -211,13 +211,13 @@ func updateVersionFile(fname string) {
 			buffer.WriteString("\n")
 			continue
 		}
-		if strings.Contains(line, "buildnumber") {
+		if strings.Contains(line, "Buildnumber") {
 			changed = true
 			line = strings.Replace(line, "0", fmt.Sprintf("%d", *buildnumber), 1)
-		} else if strings.Contains(line, "build_date_string") {
+		} else if strings.Contains(line, "Build_date_string") {
 			changed = true
 			line = strings.Replace(line, "today", time.Now().UTC().Format("2006-01-02T15:04:05-0700"), 1)
-		} else if strings.Contains(line, "build_date") {
+		} else if strings.Contains(line, "Build_date") {
 			changed = true
 			line = strings.Replace(line, "0", fmt.Sprintf("%d", time.Now().Unix()), 1)
 		}
