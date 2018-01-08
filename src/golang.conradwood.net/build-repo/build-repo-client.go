@@ -30,12 +30,17 @@ var (
 	distDir     = flag.String("distdir", "dist", "Default directory to upload")
 	dryrun      = flag.Bool("n", false, "dry-run")
 	versionfile = flag.String("versionfile", "", "filename of a versionfile to update with buildid")
+	versiondir  = flag.String("versiondir", "", "directory to scan for buildversion.go files (update files with buildid)")
 )
 
 func main() {
 	flag.Parse()
 	if *versionfile != "" {
-		updateVersionFile()
+		updateVersionFile(*versionfile)
+		os.Exit(0)
+	}
+	if *versiondir != "" {
+		updateVersionDir(*versiondir)
 		os.Exit(0)
 	}
 	files := flag.Args()
@@ -174,11 +179,32 @@ func bail(err error, msg string) {
 	fmt.Printf("%s: %s", msg, err)
 	os.Exit(10)
 }
-func updateVersionFile() {
-	bs, err := ioutil.ReadFile(*versionfile)
+
+// recursively go through directory and process all files called buildversion.go
+func updateVersionDir(dname string) {
+	fos, err := ioutil.ReadDir(dname)
+	bail(err, "Unable to read dir")
+	for _, file := range fos {
+		if file.IsDir() {
+			updateVersionDir(fmt.Sprintf("%s/%s", dname, file.Name()))
+			continue
+		}
+		if file.Name() != "buildversion.go" {
+			continue
+		}
+		fullname := fmt.Sprintf("%s/%s", dname, file.Name())
+		fmt.Printf("File: %s\n", fullname)
+		updateVersionFile(fullname)
+
+	}
+}
+
+func updateVersionFile(fname string) {
+	bs, err := ioutil.ReadFile(fname)
 	bail(err, "Failed to readfile")
 	lines := string(bs)
 	var buffer bytes.Buffer
+	changed := false
 	for _, line := range strings.Split(lines, "\n") {
 		if !strings.Contains(line, "// AUTOMATIC VERSION UPDATE: OK") {
 			buffer.WriteString(line)
@@ -186,17 +212,30 @@ func updateVersionFile() {
 			continue
 		}
 		if strings.Contains(line, "buildnumber") {
+			changed = true
 			line = strings.Replace(line, "0", fmt.Sprintf("%d", *buildnumber), 1)
 		} else if strings.Contains(line, "build_date_string") {
+			changed = true
 			line = strings.Replace(line, "today", time.Now().UTC().Format("2006-01-02T15:04:05-0700"), 1)
 		} else if strings.Contains(line, "build_date") {
+			changed = true
 			line = strings.Replace(line, "0", fmt.Sprintf("%d", time.Now().Unix()), 1)
 		}
 		buffer.WriteString(line)
 		buffer.WriteString("\n")
 
 	}
+	if !changed {
+		fmt.Printf("File %s was not changed\n", fname)
+		return
+	}
 	s := buffer.String()
-	fmt.Printf("%s\n", s)
+	if *buildnumber != 0 {
+		err := ioutil.WriteFile(fname, []byte(s), 0777)
+		bail(err, "Failed to write versionfile")
+		fmt.Printf("File %s updated\n", fname)
+	} else {
+		fmt.Printf("File %s would have been updated to:\n%s\n", fname, s)
+	}
 
 }
