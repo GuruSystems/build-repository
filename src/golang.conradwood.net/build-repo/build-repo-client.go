@@ -1,21 +1,22 @@
 package main
 
-// see: https://grpc.io/docs/tutorials/basic/go.html
-
 import (
 	"fmt"
 	"google.golang.org/grpc"
+	"time"
 	//	"github.com/golang/protobuf/proto"
 	"errors"
 	"flag"
 	"golang.org/x/net/context"
 	//	"net"
+	"bytes"
 	pb "golang.conradwood.net/build-repo/proto"
 	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"strings"
 )
 
 // static variables for flag parser
@@ -28,10 +29,15 @@ var (
 	buildnumber = flag.Int("build", 0, "build number")
 	distDir     = flag.String("distdir", "dist", "Default directory to upload")
 	dryrun      = flag.Bool("n", false, "dry-run")
+	versionfile = flag.String("versionfile", "", "filename of a versionfile to update with buildid")
 )
 
 func main() {
 	flag.Parse()
+	if *versionfile != "" {
+		updateVersionFile()
+		os.Exit(0)
+	}
 	files := flag.Args()
 	if len(files) == 0 {
 		fmt.Printf("No files specified on commandline, using \"%s\" as default\n", *distDir)
@@ -160,4 +166,37 @@ func AddDirIfExists(dirname string, files *[]string) error {
 		*files = append(*files, fmt.Sprintf("%s/%s", dirname, file.Name()))
 	}
 	return nil
+}
+func bail(err error, msg string) {
+	if err == nil {
+		return
+	}
+	fmt.Printf("%s: %s", msg, err)
+	os.Exit(10)
+}
+func updateVersionFile() {
+	bs, err := ioutil.ReadFile(*versionfile)
+	bail(err, "Failed to readfile")
+	lines := string(bs)
+	var buffer bytes.Buffer
+	for _, line := range strings.Split(lines, "\n") {
+		if !strings.Contains(line, "// AUTOMATIC VERSION UPDATE: OK") {
+			buffer.WriteString(line)
+			buffer.WriteString("\n")
+			continue
+		}
+		if strings.Contains(line, "buildnumber") {
+			line = strings.Replace(line, "0", fmt.Sprintf("%d", *buildnumber), 1)
+		} else if strings.Contains(line, "build_date_string") {
+			line = strings.Replace(line, "today", time.Now().UTC().Format("2006-01-02T15:04:05-0700"), 1)
+		} else if strings.Contains(line, "build_date") {
+			line = strings.Replace(line, "0", fmt.Sprintf("%d", time.Now().Unix()), 1)
+		}
+		buffer.WriteString(line)
+		buffer.WriteString("\n")
+
+	}
+	s := buffer.String()
+	fmt.Printf("%s\n", s)
+
 }
