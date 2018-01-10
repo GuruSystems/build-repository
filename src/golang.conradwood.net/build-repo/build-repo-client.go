@@ -31,6 +31,10 @@ var (
 	dryrun      = flag.Bool("n", false, "dry-run")
 	versionfile = flag.String("versionfile", "", "filename of a versionfile to update with buildid")
 	versiondir  = flag.String("versiondir", "", "directory to scan for buildversion.go files (update files with buildid)")
+	info        = flag.Bool("info", false, "Get information about the repo")
+	offset      = flag.Int("offset", -1, "if >0 read a block from the file in the repo beginning at the specified offset")
+	blocksize   = flag.Int("blocksize", 512, "Default block size when reading block from file from repo")
+	filename    = flag.String("filename", "", "Filename from which to retrieve a block")
 )
 
 func main() {
@@ -41,6 +45,14 @@ func main() {
 	}
 	if *versiondir != "" {
 		updateVersionDir(*versiondir)
+		os.Exit(0)
+	}
+	if *info {
+		getInfo()
+		os.Exit(0)
+	}
+	if *offset >= 0 {
+		getBlock()
 		os.Exit(0)
 	}
 	files := flag.Args()
@@ -98,6 +110,53 @@ func main() {
 		os.Exit(5)
 	}
 }
+
+// get an arbitrary block from a file from repo
+// this is useful for OTA
+func getBlock() {
+	opts := []grpc.DialOption{grpc.WithInsecure()}
+	fmt.Println("Connecting to server...")
+	conn, err := grpc.Dial(*serverAddr, opts...)
+	bail(err, "failed to dial")
+
+	defer conn.Close()
+	ctx := context.Background()
+	client := pb.NewBuildRepoManagerClient(conn)
+	glv := &pb.GetBlockRequest{
+		Repository: *reponame,
+		Branch:     *branchname,
+		BuildID:    uint64(*buildnumber),
+		Filename:   *filename,
+		Offset:     uint64(*offset),
+		Size:       uint32(*blocksize),
+	}
+	glr, err := client.GetBlock(ctx, glv)
+	bail(err, "Failed to read block")
+	fmt.Printf("Response:\n")
+	fmt.Printf("Size=%d, Offset=%d\n", glr.Size, glr.Offset)
+	fmt.Printf("Data: [%s]\n", glr.Data)
+}
+
+// connect to server, get latest version information of a given repo
+func getInfo() {
+	opts := []grpc.DialOption{grpc.WithInsecure()}
+	fmt.Println("Connecting to server...")
+	conn, err := grpc.Dial(*serverAddr, opts...)
+	bail(err, "failed to dial")
+
+	defer conn.Close()
+	ctx := context.Background()
+	client := pb.NewBuildRepoManagerClient(conn)
+	glv := &pb.GetLatestVersionRequest{
+		Repository: *reponame,
+		Branch:     *branchname,
+	}
+	glr, err := client.GetLatestVersion(ctx, glv)
+	bail(err, "failed to get latest version")
+	fmt.Printf("Latest Version: %d\n", glr.BuildID)
+}
+
+// end info stuff
 
 func uploadFiles(ctx context.Context, client pb.BuildRepoManagerClient, storeid string, serverHost string, files []string) error {
 	// why "dog"? I learned of the "range" operator from an example

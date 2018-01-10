@@ -69,6 +69,32 @@ string Version=3;
 message ListFilesResponse {
 repeated RepoEntry Entries=1;
 }
+message GetLatestVersionRequest {
+string Repository=1;
+string Branch=2;
+}
+message GetLatestVersionResponse {
+uint64 BuildID=1;
+}
+
+message GetBlockRequest {
+string Repository=1;
+string Branch=2;
+uint64 BuildID=3;
+string Filename=4;
+uint64 Offset=5;
+uint32 Size=6; // grpc transport limit: max 32k ! 
+}
+
+message GetBlockResponse {
+string Repository=1;
+string Branch=2;
+uint64 BuildID=3;
+string Filename=4;
+uint64 Offset=5;
+uint32 Size=6; // grpc transport limit: max 32k !
+bytes Data=7;
+}
 
 service BuildRepoManager {
  rpc CreateBuild(CreateBuildRequest) returns (CreateBuildResponse);
@@ -78,4 +104,6 @@ service BuildRepoManager {
  rpc ListBranches(ListBranchesRequest) returns (ListBranchesResponse);
  rpc ListVersions(ListVersionsRequest) returns (ListVersionsResponse);
  rpc ListFiles(ListFilesRequest) returns (ListFilesResponse);
+ rpc GetLatestVersion(GetLatestVersionRequest) returns (GetLatestVersionResponse);
+ rpc GetBlock(GetBlockRequest) returns (GetBlockResponse);
 }

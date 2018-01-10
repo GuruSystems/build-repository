@@ -8,6 +8,7 @@ package main
 import (
 	"fmt"
 	"google.golang.org/grpc"
+	"strconv"
 	//	"github.com/golang/protobuf/proto"
 	"errors"
 	"flag"
@@ -197,13 +198,8 @@ func upload(w http.ResponseWriter, r *http.Request) {
 * implementing the functions here:
 ***********************************/
 type BuildRepoServer struct {
-	wtf int
 }
 
-// in C we put methods into structs and call them pointers to functions
-// in java/python we also put pointers to functions into structs and but call them "objects" instead
-// in Go we don't put functions pointers into structs, we "associate" a function with a struct.
-// (I think that's more or less the same as what C does, just different Syntax)
 func (s *BuildRepoServer) CreateBuild(ctx context.Context, cr *pb.CreateBuildRequest) (*pb.CreateBuildResponse, error) {
 	peer, ok := peer.FromContext(ctx)
 	if !ok {
@@ -449,14 +445,80 @@ func (s *BuildRepoServer) ListFiles(ctx context.Context, req *pb.ListFilesReques
 	return &res, nil
 }
 
+func (s *BuildRepoServer) GetLatestVersion(ctx context.Context, req *pb.GetLatestVersionRequest) (*pb.GetLatestVersionResponse, error) {
+	repo := req.Repository
+	if !isValidName(repo) {
+		return nil, errors.New(fmt.Sprintf("Invalid repo name \"%s\"", repo))
+	}
+	branch := req.Branch
+	if !isValidName(branch) {
+		return nil, errors.New(fmt.Sprintf("Invalid branch name \"%s\"", branch))
+	}
+	fmt.Printf("getting latest version for repo %s and branch %s\n", repo, branch)
+	repodir := fmt.Sprintf("%s/%s/%s", base, repo, branch)
+	e, err := ReadEntries(repodir)
+	if err != nil {
+		return nil, err
+	}
+	bid := -1
+	for _, en := range e {
+		if en.Type != 2 {
+			continue
+		}
+		x, er := strconv.Atoi(en.Name)
+		if er != nil {
+			continue
+		}
+		if x > bid {
+			bid = x
+		}
+	}
+	res := pb.GetLatestVersionResponse{BuildID: uint64(bid)}
+	return &res, nil
+
+}
+func (b *BuildRepoServer) GetBlock(ctx context.Context, req *pb.GetBlockRequest) (*pb.GetBlockResponse, error) {
+	filename := req.Filename
+	if strings.Contains(filename, "/") {
+		return nil, fmt.Errorf("Filename must not contain '/' (%s)", filename)
+	}
+	if strings.Contains(filename, "~") {
+		return nil, fmt.Errorf("Filename must not contain '~' (%s)", filename)
+	}
+	filename = fmt.Sprintf("%s/%s/%s/%d/%s", base, req.Repository, req.Branch, req.BuildID, filename)
+	fmt.Printf("Filename: %s\n", filename)
+
+	f, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	buf := make([]byte, req.Size)
+	size, err := f.ReadAt(buf, int64(req.Offset))
+	if err != io.EOF && err != nil {
+		return nil, err
+	}
+
+	resp := &pb.GetBlockResponse{
+		Repository: req.Repository,
+		Branch:     req.Branch,
+		BuildID:    req.BuildID,
+		Filename:   req.Filename,
+		Offset:     req.Offset,
+		Size:       uint32(size),
+		Data:       buf,
+	}
+	return resp, nil
+}
+
 func ReadEntries(dir string) ([]*pb.RepoEntry, error) {
 	fis, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return nil, err
 	}
 	var res []*pb.RepoEntry
-	for idx, fi := range fis {
-		fmt.Printf("%d. Repo: %s\n", idx, fi.Name())
+	for _, fi := range fis {
+		//fmt.Printf("%d. Repo: %s\n", idx, fi.Name())
 		re := pb.RepoEntry{}
 		re.Name = fi.Name()
 		re.Type = 1
