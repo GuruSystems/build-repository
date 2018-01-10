@@ -122,13 +122,16 @@ func getBlock() {
 	defer conn.Close()
 	ctx := context.Background()
 	client := pb.NewBuildRepoManagerClient(conn)
-	glv := &pb.GetBlockRequest{
+	f := &pb.File{
 		Repository: *reponame,
 		Branch:     *branchname,
 		BuildID:    uint64(*buildnumber),
 		Filename:   *filename,
-		Offset:     uint64(*offset),
-		Size:       uint32(*blocksize),
+	}
+	glv := &pb.GetBlockRequest{
+		File:   f,
+		Offset: uint64(*offset),
+		Size:   uint32(*blocksize),
 	}
 	glr, err := client.GetBlock(ctx, glv)
 	bail(err, "Failed to read block")

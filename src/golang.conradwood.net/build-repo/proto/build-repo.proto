@@ -78,24 +78,33 @@ uint64 BuildID=1;
 }
 
 message GetBlockRequest {
-string Repository=1;
-string Branch=2;
-uint64 BuildID=3;
-string Filename=4;
-uint64 Offset=5;
-uint32 Size=6; // grpc transport limit: max 32k ! 
+File file=1;
+uint64 Offset=2;
+uint32 Size=3; // grpc transport limit: max 32k !
 }
 
 message GetBlockResponse {
+File file=1;
+uint64 Offset=2;
+uint32 Size=3; // grpc transport limit: max 32k !
+bytes Data=4;
+}
+
+// identify a unique file
+message File {
 string Repository=1;
 string Branch=2;
 uint64 BuildID=3;
 string Filename=4;
-uint64 Offset=5;
-uint32 Size=6; // grpc transport limit: max 32k !
-bytes Data=7;
 }
 
+message GetMetaRequest {
+File file=1;
+}
+message GetMetaResponse {
+File file=1;
+uint64 Size=2;
+}
 service BuildRepoManager {
  rpc CreateBuild(CreateBuildRequest) returns (CreateBuildResponse);
  rpc GetUploadSlot(UploadSlotRequest) returns (UploadSlotResponse);
@@ -106,4 +115,5 @@ service BuildRepoManager {
  rpc ListFiles(ListFilesRequest) returns (ListFilesResponse);
  rpc GetLatestVersion(GetLatestVersionRequest) returns (GetLatestVersionResponse);
  rpc GetBlock(GetBlockRequest) returns (GetBlockResponse);
+ rpc GetFileMetaData(GetMetaRequest) returns (GetMetaResponse);
 }

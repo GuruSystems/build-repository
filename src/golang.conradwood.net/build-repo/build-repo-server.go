@@ -478,16 +478,10 @@ func (s *BuildRepoServer) GetLatestVersion(ctx context.Context, req *pb.GetLates
 
 }
 func (b *BuildRepoServer) GetBlock(ctx context.Context, req *pb.GetBlockRequest) (*pb.GetBlockResponse, error) {
-	filename := req.Filename
-	if strings.Contains(filename, "/") {
-		return nil, fmt.Errorf("Filename must not contain '/' (%s)", filename)
+	filename, err := toFilename(req.File)
+	if err != nil {
+		return nil, err
 	}
-	if strings.Contains(filename, "~") {
-		return nil, fmt.Errorf("Filename must not contain '~' (%s)", filename)
-	}
-	filename = fmt.Sprintf("%s/%s/%s/%d/%s", base, req.Repository, req.Branch, req.BuildID, filename)
-	fmt.Printf("Filename: %s\n", filename)
-
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -500,13 +494,34 @@ func (b *BuildRepoServer) GetBlock(ctx context.Context, req *pb.GetBlockRequest)
 	}
 
 	resp := &pb.GetBlockResponse{
-		Repository: req.Repository,
-		Branch:     req.Branch,
-		BuildID:    req.BuildID,
-		Filename:   req.Filename,
-		Offset:     req.Offset,
-		Size:       uint32(size),
-		Data:       buf,
+		File:   req.File,
+		Offset: req.Offset,
+		Size:   uint32(size),
+		Data:   buf,
+	}
+	return resp, nil
+}
+
+func (s *BuildRepoServer) GetFileMetaData(ctx context.Context, req *pb.GetMetaRequest) (*pb.GetMetaResponse, error) {
+	filename, err := toFilename(req.File)
+	if err != nil {
+		return nil, err
+	}
+	f, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	fi, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Printf("The file is %d bytes long", fi.Size())
+
+	resp := &pb.GetMetaResponse{
+		File: req.File,
+		Size: uint64(fi.Size()),
 	}
 	return resp, nil
 }
@@ -528,4 +543,17 @@ func ReadEntries(dir string) ([]*pb.RepoEntry, error) {
 		res = append(res, &re)
 	}
 	return res, nil
+}
+
+func toFilename(f *pb.File) (string, error) {
+	filename := f.Filename
+	if strings.Contains(filename, "/") {
+		return "", fmt.Errorf("Filename must not contain '/' (%s)", filename)
+	}
+	if strings.Contains(filename, "~") {
+		return "", fmt.Errorf("Filename must not contain '~' (%s)", filename)
+	}
+	filename = fmt.Sprintf("%s/%s/%s/%d/%s", base, f.Repository, f.Branch, f.BuildID, filename)
+	fmt.Printf("Filename: %s\n", filename)
+	return filename, nil
 }
