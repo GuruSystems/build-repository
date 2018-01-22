@@ -223,7 +223,11 @@ func (s *BuildRepoServer) CreateBuild(ctx context.Context, cr *pb.CreateBuildReq
 
 	resp := pb.CreateBuildResponse{}
 	dir := fmt.Sprintf("%s/%s/%s/%d", base, cr.Repository, cr.Branch, cr.BuildID)
-	err := os.MkdirAll(dir, 0777)
+	st, err := os.Stat(dir)
+	if (err == nil) && (st != nil) {
+		return nil, fmt.Errorf("Dir %s already exists. Trying to update an existing build??", dir)
+	}
+	err = os.MkdirAll(dir, 0777)
 	if err != nil {
 		fmt.Println("Failed to create directory ", dir, err)
 		return &resp, err

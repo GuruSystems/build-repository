@@ -12,7 +12,9 @@ client:
 	go install build-repo-client.go
 frontend:
 	go install build-repo-fe.go
-
+all:
+	make proto
+	make client server
 .PHONY: proto
 proto:
 	@echo compiling Go proto stubs
