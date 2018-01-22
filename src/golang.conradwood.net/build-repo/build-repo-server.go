@@ -338,6 +338,9 @@ func (s *BuildRepoServer) UploadsComplete(ctx context.Context, udr *pb.UploadDon
 	if !exists {
 		exists, err = execute(store, fmt.Sprintf("%s/default", *hooksdir), "post-upload")
 	}
+	if err != nil {
+		fmt.Printf("Failed to execute hook: %s\n", err)
+	}
 	removeStoreID(store.StoreID)
 	return resp, nil
 }
