@@ -107,6 +107,10 @@ func StoreUploadMetaData(vfilename string, vtoken string, vstoreid string) {
 func StoreIDToDir(storeid string) string {
 	return storeids[storeid].StorePath
 }
+
+// we hand a 'storeid' to the client, because we do not want to expose
+// the directory structure to the client
+// (maybe we use some online objectstore in the future)
 func DirToStoreID(dir string, buildid int, commitid string, msg string, branch string, repo string) string {
 	id := RandString(128)
 	smd := StoreMetaData{
