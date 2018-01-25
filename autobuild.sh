@@ -5,7 +5,7 @@ echo "GOPATH=$GOPATH"
 export MYSRC=src/golang.conradwood.net/build-repo/
 
 buildall() {
-    GOBIN=$GOPATH/dist/${GOOS}/${GOARCH}/
+    export GOBIN=$GOPATH/dist/${GOOS}/${GOARCH}/
     mkdir -p $GOBIN
     ( cd ${MYSRC} && make proto ) || exit 10
     ( cd ${MYSRC} && make client ) || exit 10
