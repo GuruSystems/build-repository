@@ -2,11 +2,11 @@
 # go insists on absolute path.
 export GOPATH=`pwd`
 echo "GOPATH=$GOPATH"
+export MYSRC=src/golang.conradwood.net/build-repo/
 
 buildall() {
-    GOBIN=GOPATH/dist/${GOOS}/${GOARCH}/
+    GOBIN=$GOPATH/dist/${GOOS}/${GOARCH}/
     mkdir -p $GOBIN
-    MYSRC=src/golang.conradwood.net/build-repo/
     ( cd ${MYSRC} && make proto ) || exit 10
     ( cd ${MYSRC} && make client ) || exit 10
     ( cd ${MYSRC} && make server ) || exit 10
