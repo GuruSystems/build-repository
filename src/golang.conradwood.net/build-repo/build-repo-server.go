@@ -547,7 +547,7 @@ func (b *BuildRepoServer) GetBlock(ctx context.Context, req *pb.GetBlockRequest)
 		File:   req.File,
 		Offset: req.Offset,
 		Size:   uint32(size),
-		Data:   buf,
+		Data:   buf[:size],
 	}
 	return resp, nil
 }
