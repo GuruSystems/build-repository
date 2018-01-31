@@ -1,6 +1,8 @@
 package main
 
 // don't use it in an untrusted environment!
+// it expects clients to be authenticated
+// (e.g. lbproxy)
 
 // also we WILL leak memory, because we don't clean up the maps if
 // client doesn't go through the completeUpload RPC
@@ -107,6 +109,10 @@ func StoreUploadMetaData(vfilename string, vtoken string, vstoreid string) {
 func StoreIDToDir(storeid string) string {
 	return storeids[storeid].StorePath
 }
+
+// we hand a 'storeid' to the client, because we do not want to expose
+// the directory structure to the client
+// (maybe we use some online objectstore in the future)
 func DirToStoreID(dir string, buildid int, commitid string, msg string, branch string, repo string) string {
 	id := RandString(128)
 	smd := StoreMetaData{
@@ -170,6 +176,10 @@ func main() {
 
 }
 
+// this receives a file
+// identifies the location by ID
+// (which it previously generated, and responded to with
+// a response in an RPC call)
 func upload(w http.ResponseWriter, r *http.Request) {
 	//fmt.Printf("HTTP Upload method: %s, content-type: %s\n", r.Method, r.Header.Get("Content-Type"))
 	token := r.URL.Path
@@ -200,6 +210,8 @@ func upload(w http.ResponseWriter, r *http.Request) {
 type BuildRepoServer struct {
 }
 
+// RPC Call:
+// we have a new build. Yeah, new software ;)
 func (s *BuildRepoServer) CreateBuild(ctx context.Context, cr *pb.CreateBuildRequest) (*pb.CreateBuildResponse, error) {
 	peer, ok := peer.FromContext(ctx)
 	if !ok {
@@ -223,7 +235,11 @@ func (s *BuildRepoServer) CreateBuild(ctx context.Context, cr *pb.CreateBuildReq
 
 	resp := pb.CreateBuildResponse{}
 	dir := fmt.Sprintf("%s/%s/%s/%d", base, cr.Repository, cr.Branch, cr.BuildID)
-	err := os.MkdirAll(dir, 0777)
+	st, err := os.Stat(dir)
+	if (err == nil) && (st != nil) {
+		return nil, fmt.Errorf("Dir %s already exists. Trying to update an existing build??", dir)
+	}
+	err = os.MkdirAll(dir, 0777)
 	if err != nil {
 		fmt.Println("Failed to create directory ", dir, err)
 		return &resp, err
@@ -252,6 +268,8 @@ func (s *BuildRepoServer) CreateBuild(ctx context.Context, cr *pb.CreateBuildReq
 	return &resp, nil
 }
 
+// remove symlink of old name and point to new
+// (maintains a symlink 'latest' to point to next build)
 func UpdateSymLink(dir string, latestBuild int) error {
 	linkName := fmt.Sprintf("%s/latest", dir)
 	fmt.Printf("linking \"latest\" in dir %s to %d\n", dir, latestBuild)
@@ -279,6 +297,12 @@ func UpdateSymLink(dir string, latestBuild int) error {
 	return nil
 }
 
+// generate a random ID for a given file to be uploaded
+// the client basically says: "I got a file for build X,
+// please give me temporary upload URL" and then uploads
+// to that URL.
+// (we don't expose a directory structure to the client,
+// because we might store the files elsewhere in future)
 func (s *BuildRepoServer) GetUploadSlot(ctx context.Context, pr *pb.UploadSlotRequest) (*pb.UploadSlotResponse, error) {
 
 	res := &pb.UploadSlotResponse{}
@@ -310,7 +334,7 @@ func (s *BuildRepoServer) GetUploadSlot(ctx context.Context, pr *pb.UploadSlotRe
 	return res, nil
 }
 
-// all done, now call any hooks we might find
+// client claims it's all done, now call any hooks we might find
 func (s *BuildRepoServer) UploadsComplete(ctx context.Context, udr *pb.UploadDoneRequest) (*pb.UploadDoneResponse, error) {
 	resp := &pb.UploadDoneResponse{}
 	if udr.BuildStoreid == "" {
@@ -334,7 +358,13 @@ func (s *BuildRepoServer) UploadsComplete(ctx context.Context, udr *pb.UploadDon
 	hookdir = filepath.Clean(hookdir)
 	hookdir = filepath.Dir(hookdir)
 	fmt.Printf("Looking for hooks in %s\n", hookdir)
-	execute(store, hookdir, "post-upload")
+	exists, err := execute(store, hookdir, "post-upload")
+	if !exists {
+		exists, err = execute(store, fmt.Sprintf("%s/default", *hooksdir), "post-upload")
+	}
+	if err != nil {
+		fmt.Printf("Failed to execute hook: %s\n", err)
+	}
 	removeStoreID(store.StoreID)
 	return resp, nil
 }
@@ -377,6 +407,9 @@ func execute(store StoreMetaData, dir string, scriptname string) (bool, error) {
 
 	return true, nil
 }
+
+// RPC Call:
+// list names of all repositories on this build server
 func (s *BuildRepoServer) ListRepos(ctx context.Context, req *pb.ListReposRequest) (*pb.ListReposResponse, error) {
 	res := pb.ListReposResponse{}
 	e, err := ReadEntries(base)
@@ -386,6 +419,9 @@ func (s *BuildRepoServer) ListRepos(ctx context.Context, req *pb.ListReposReques
 	}
 	return &res, nil
 }
+
+// RPC Call:
+// given a repo, list all branches for which we have builds
 func (s *BuildRepoServer) ListBranches(ctx context.Context, req *pb.ListBranchesRequest) (*pb.ListBranchesResponse, error) {
 	repo := req.Repository
 	fmt.Printf("Listing branches of repository %s\n", repo)
@@ -402,6 +438,8 @@ func (s *BuildRepoServer) ListBranches(ctx context.Context, req *pb.ListBranches
 	return &res, nil
 }
 
+// RPC Call:
+// given a repo, list all versions we have (all build numbers)
 func (s *BuildRepoServer) ListVersions(ctx context.Context, req *pb.ListVersionsRequest) (*pb.ListVersionsResponse, error) {
 	repo := req.Repository
 	if !isValidName(repo) {
@@ -421,6 +459,9 @@ func (s *BuildRepoServer) ListVersions(ctx context.Context, req *pb.ListVersions
 	}
 	return &res, nil
 }
+
+// RPC Call:
+// list all files for a given build
 func (s *BuildRepoServer) ListFiles(ctx context.Context, req *pb.ListFilesRequest) (*pb.ListFilesResponse, error) {
 	repo := req.Repository
 	if !isValidName(repo) {
@@ -445,6 +486,8 @@ func (s *BuildRepoServer) ListFiles(ctx context.Context, req *pb.ListFilesReques
 	return &res, nil
 }
 
+// RPC Call:
+// give the latest build number of a given repo/branch
 func (s *BuildRepoServer) GetLatestVersion(ctx context.Context, req *pb.GetLatestVersionRequest) (*pb.GetLatestVersionResponse, error) {
 	repo := req.Repository
 	if !isValidName(repo) {
@@ -477,6 +520,13 @@ func (s *BuildRepoServer) GetLatestVersion(ctx context.Context, req *pb.GetLates
 	return &res, nil
 
 }
+
+// RPC Call:
+// this one is a bit funny - given a specific file in a repo
+// and build, take an offset and size and return the chunk of that
+// file.
+// (some binaries are capable of being streamed over the air to
+// remote IoT Devices).
 func (b *BuildRepoServer) GetBlock(ctx context.Context, req *pb.GetBlockRequest) (*pb.GetBlockResponse, error) {
 	filename, err := toFilename(req.File)
 	if err != nil {
@@ -497,11 +547,13 @@ func (b *BuildRepoServer) GetBlock(ctx context.Context, req *pb.GetBlockRequest)
 		File:   req.File,
 		Offset: req.Offset,
 		Size:   uint32(size),
-		Data:   buf,
+		Data:   buf[:size],
 	}
 	return resp, nil
 }
 
+// RPC Call:
+// get information about a file, e.g. size
 func (s *BuildRepoServer) GetFileMetaData(ctx context.Context, req *pb.GetMetaRequest) (*pb.GetMetaResponse, error) {
 	filename, err := toFilename(req.File)
 	if err != nil {
@@ -545,6 +597,7 @@ func ReadEntries(dir string) ([]*pb.RepoEntry, error) {
 	return res, nil
 }
 
+// sanity check for filenames
 func toFilename(f *pb.File) (string, error) {
 	filename := f.Filename
 	if strings.Contains(filename, "/") {
