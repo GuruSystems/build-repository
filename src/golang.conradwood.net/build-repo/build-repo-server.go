@@ -257,7 +257,7 @@ func (s *BuildRepoServer) CreateBuild(ctx context.Context, cr *pb.CreateBuildReq
 	}
 	defer f.Close()
 	f.WriteString(fmt.Sprintf("COMMIT_ID=%s\n", cr.CommitID))
-	f.WriteString(fmt.Sprintf("BUILD_ID=%s\n", cr.BuildID))
+	f.WriteString(fmt.Sprintf("BUILD_ID=%d\n", cr.BuildID))
 
 	linkdir := fmt.Sprintf("%s/%s/%s", base, cr.Repository, cr.Branch)
 	err = UpdateSymLink(linkdir, int(cr.BuildID))
