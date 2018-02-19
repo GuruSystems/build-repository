@@ -1,0 +1,19 @@
+!_TAG_FILE_SORTED	2	/0=unsorted, 1=sorted, 2=foldcase/
+addHandler	/home/ben/gocode/src/github.com/golangdaddy/girlfriend/common/handler.go	/^func (node *Node) addHandler(method string, h *Handler) {$/;"	f	language:Go
+ApiUrl	/home/ben/gocode/src/github.com/golangdaddy/girlfriend/common/handler.go	/^func (handler *Handler) ApiUrl() string {$/;"	f	language:Go
+Fail	/home/ben/gocode/src/github.com/golangdaddy/girlfriend/common/respond.go	/^func Fail() *ResponseStatus {$/;"	f	language:Go
+GenerateClientJS	/home/ben/gocode/src/github.com/golangdaddy/girlfriend/common/generate.go	/^func (handler *Handler) GenerateClientJS() error {$/;"	f	language:Go
+gf	/home/ben/gocode/src/github.com/golangdaddy/girlfriend/common/generate.go	/^package gf$/;"	p	language:Go
+gf	/home/ben/gocode/src/github.com/golangdaddy/girlfriend/common/handler.go	/^package gf$/;"	p	language:Go
+gf	/home/ben/gocode/src/github.com/golangdaddy/girlfriend/common/request.go	/^package gf$/;"	p	language:Go
+gf	/home/ben/gocode/src/github.com/golangdaddy/girlfriend/common/respond.go	/^package gf$/;"	p	language:Go
+Handle	/home/ben/gocode/src/github.com/golangdaddy/girlfriend/common/handler.go	/^func (handler *Handler) Handle(req RequestInterface, pathSegment string) {$/;"	f	language:Go
+Handler	/home/ben/gocode/src/github.com/golangdaddy/girlfriend/common/handler.go	/^type Handler struct {$/;"	t	language:Go
+HandleStatus	/home/ben/gocode/src/github.com/golangdaddy/girlfriend/common/respond.go	/^func HandleStatus(req RequestInterface, status *ResponseStatus) {$/;"	f	language:Go
+Name	/home/ben/gocode/src/github.com/golangdaddy/girlfriend/common/handler.go	/^func (handler *Handler) Name() string {$/;"	f	language:Go
+Payload	/home/ben/gocode/src/github.com/golangdaddy/girlfriend/common/handler.go	/^func (handler *Handler) Payload(schema ...interface{}) *Handler {$/;"	f	language:Go
+ReadPayload	/home/ben/gocode/src/github.com/golangdaddy/girlfriend/common/handler.go	/^func (handler *Handler) ReadPayload(req RequestInterface) bool {$/;"	f	language:Go
+RequestInterface	/home/ben/gocode/src/github.com/golangdaddy/girlfriend/common/request.go	/^type RequestInterface interface {$/;"	t	language:Go
+Respond	/home/ben/gocode/src/github.com/golangdaddy/girlfriend/common/respond.go	/^func Respond(args ...interface{}) *ResponseStatus {$/;"	f	language:Go
+Response	/home/ben/gocode/src/github.com/golangdaddy/girlfriend/common/handler.go	/^func (handler *Handler) Response(schema ...interface{}) *Handler {$/;"	f	language:Go
+ResponseStatus	/home/ben/gocode/src/github.com/golangdaddy/girlfriend/common/respond.go	/^type ResponseStatus struct {$/;"	t	language:Go

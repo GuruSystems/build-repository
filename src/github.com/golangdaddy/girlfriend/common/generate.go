@@ -1,0 +1,72 @@
+package gf
+
+import	(
+		"bytes"
+		"strings"
+		"runtime"
+		"html/template"
+		)
+
+
+// func GenerateClientJS generates javascript functions for calling endpoints created in your modules.
+func (handler *Handler) GenerateClientJS() error {
+
+	clientJS := bytes.NewBuffer(nil)
+
+	domain := strings.Title(handler.Config.Host)
+	handlerName := handler.Name()
+
+	if handler.isFile { return nil }
+
+	if strings.Contains(handlerName, "_") { return nil }
+
+	// replace characters that break the js with an empty string
+	//handlerName = strings.Replace(handlerName, "_", "", -1)
+	//handlerName = strings.Replace(handlerName, "-", "", -1)
+
+	fk := handler.functionKey
+
+	if fk == "?" {
+
+		if pc, _, _, ok := runtime.Caller(5); ok { fk = runtime.FuncForPC(pc).Name() }
+
+	}
+
+	script := []string{
+		"\n // " + fk,
+		"\n this." + strings.ToLower(handler.method) + domain + handlerName + " = function (",
+	}
+
+	payload := "null"
+
+	args := []string{}
+	for _, vc := range handler.node.validations { args = append(args, vc.Key()) }
+
+	if len(args) > 0 {
+		script = append(script, strings.Join(args, ", "))
+		script = append(script, ", ")
+	}
+
+	if handler.method == "POST" {
+
+		script = append(script, "payload")
+		payload = "payload"
+		script = append(script, ", ")
+
+	}
+
+	str := "success, fail) { " + strings.ToLower(handler.method) + "('" + handler.Config.Host + "', " + handler.ApiUrl() + ", success, " + payload + ", fail); }; \n"
+
+	script = append(script, str)
+
+	t, err := template.New("").Parse(strings.Join(script, "")); if err != nil { return err }
+	err = t.Execute(clientJS, handler); if err != nil { return err }
+
+	handler.Lock()
+
+		handler.clientJS = clientJS
+
+	handler.Unlock()
+
+	return nil
+}
