@@ -1,27 +1,18 @@
 #!/bin/sh
 # go insists on absolute path.
-export GOPATH=`pwd`
-echo "GOPATH=$GOPATH"
-
 rm -rf dist
 
 buildall() {
     echo "Building ${GOOS}/${GOARCH}"
-    export GOBIN=$GOPATH/dist/${GOOS}/${GOARCH}/
-    mkdir -p $GOBIN
     mkdir -p dist/${GOOS}/${GOARCH}/ || exit 10
     ( cd client && go build -o ../dist/${GOOS}/${GOARCH}/build-repo-client ) || exit 10
     ( cd server && go build -o ../dist/${GOOS}/${GOARCH}/build-repo-server) || exit 10
 }
 
-GOBIN=GOPATH/dist/proto
-
 #========= build linux
 export GOOS=linux
 export GOARCH=amd64
 buildall
-mkdir -p dist/${GOOS}/${GOARCH}/ || exit 10
-cp -p client/build-repo* dist/${GOOS}/${GOARCH}/ || exit 10
 
 #========= build mac
 export GOOS=darwin
